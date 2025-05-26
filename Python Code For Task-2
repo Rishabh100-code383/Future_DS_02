@@ -1,0 +1,108 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Mon May 26 22:39:29 2025
+
+@author: rishabh
+"""
+
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+from wordcloud import WordCloud
+from textblob import TextBlob
+import nltk
+from nltk.corpus import stopwords
+import re
+
+# Load the dataset
+import pandas as pd
+import zipfile
+
+# Path to your ZIP file
+zip_file_path = r"C:\Users\risha\Downloads\customer_support_tickets.csv.zip"
+
+# Open the zip file
+with zipfile.ZipFile(zip_file_path, 'r') as zip_ref:
+    # List files inside the zip
+    print("Files in zip:", zip_ref.namelist())
+    
+    # Extract the correct CSV file (replace if filename is different)
+    with zip_ref.open('customer_support_tickets.csv') as file:
+        df = pd.read_csv(file)
+
+# Check the first few rows
+print(df.head())
+
+
+# Data Cleaning
+df['Ticket Description'] = df['Ticket Description'].astype(str).str.lower().apply(lambda x: re.sub(r'[^\w\s]', '', x))
+
+# Drop missing values in description for NLP
+df_clean = df.dropna(subset=['Ticket Description'])
+
+# Add sentiment scores
+df_clean['Polarity'] = df_clean['Ticket Description'].apply(lambda x: TextBlob(x).sentiment.polarity)
+df_clean['Sentiment'] = df_clean['Polarity'].apply(lambda x: 'Positive' if x > 0 else ('Negative' if x < 0 else 'Neutral'))
+
+# Most Common Ticket Types
+plt.figure(figsize=(8,4))
+sns.countplot(data=df, y='Ticket Type', order=df['Ticket Type'].value_counts().index, palette='Set2')
+plt.title("Most Common Ticket Types")
+plt.tight_layout()
+plt.show()
+
+
+
+from wordcloud import WordCloud
+from nltk.corpus import stopwords
+import nltk
+
+# Make sure stopwords are downloaded
+nltk.download('stopwords')
+
+# Clean: Convert to string and join
+df_clean['Ticket Description'] = df_clean['Ticket Description'].astype(str)
+text = " ".join(df_clean['Ticket Description'].tolist())
+
+# Generate word cloud
+wordcloud = WordCloud(
+    width=800,
+    height=400,
+    background_color='white',
+    stopwords=set(stopwords.words('english'))
+).generate(text)
+
+# Plot
+plt.figure(figsize=(10, 5))
+plt.imshow(wordcloud, interpolation='bilinear')
+plt.axis("off")
+plt.title("Common Words in Ticket Descriptions")
+plt.show()
+
+
+# Ticket Priority Distribution
+plt.figure(figsize=(6,4))
+sns.countplot(data=df, x='Ticket Priority', order=['Low','Medium','High','Critical'], palette='Set1')
+plt.title("Ticket Priority Distribution")
+plt.tight_layout()
+plt.show()
+
+# Sentiment Breakdown
+plt.figure(figsize=(6,4))
+sns.countplot(data=df_clean, x='Sentiment', palette='coolwarm')
+plt.title("Customer Sentiment Based on Descriptions")
+plt.tight_layout()
+plt.show()
+
+# Resolution Time Analysis (for non-null rows)
+resolved = df.dropna(subset=['Time to Resolution'])
+resolved['Time to Resolution'] = pd.to_datetime(resolved['Time to Resolution'])
+resolved['First Response Time'] = pd.to_datetime(resolved['First Response Time'])
+resolved['Resolution Hours'] = (resolved['Time to Resolution'] - resolved['First Response Time']).dt.total_seconds() / 3600
+
+plt.figure(figsize=(8,4))
+sns.histplot(resolved['Resolution Hours'], bins=30, kde=True)
+plt.title("Resolution Time Distribution (in hours)")
+plt.xlabel("Hours")
+plt.tight_layout()
+plt.show()
